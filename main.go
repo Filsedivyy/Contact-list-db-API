@@ -16,6 +16,7 @@ type User struct {
 	ID    int64
 	Name  string
 	Email string
+	Phone uint64
 }
 
 func (h ourHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
@@ -56,12 +57,12 @@ func (h ourHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 var db *sql.DB
 
 func addUser(user User) (User, error) {
-	stmt, err := db.Prepare("INSERT INTO users SET name=?, email=?")
+	stmt, err := db.Prepare("INSERT INTO contacts SET name=?, email=?,phone=?")
 	if err != nil {
 		return User{}, err
 	}
 
-	result, err := stmt.Exec(user.Name, user.Email)
+	result, err := stmt.Exec(user.Name, user.Email, user.Phone)
 	if err != nil {
 		return User{}, err
 	}
@@ -74,10 +75,26 @@ func addUser(user User) (User, error) {
 	return user, nil
 }
 
+func getUserById(userID int64) (User, error) {
+
+	query := "SELECT * FROM contacts WHERE id =?"
+
+	row := db.QueryRow(query, userID)
+
+	var user User
+
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Phone)
+	if err != nil {
+		return User{}, err
+	}
+
+	return user, nil
+}
+
 func getUsersFromDB() ([]User, error) {
 	var usersFromDB []User
 
-	rows, err := db.Query("SELECT * FROM users")
+	rows, err := db.Query("SELECT * FROM contacts")
 	if err != nil {
 		return nil, err
 	}
