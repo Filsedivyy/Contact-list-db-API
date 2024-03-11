@@ -12,7 +12,7 @@ import (
 
 type ourHandler struct{}
 
-type User struct {
+type Contact struct {
 	ID    int64
 	Name  string
 	Email string
@@ -26,14 +26,14 @@ func (h ourHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			panic(err)
 		}
 
-		var user User
+		var contact Contact
 
-		err = json.Unmarshal(body, &user)
+		err = json.Unmarshal(body, &contact)
 		if err != nil {
 			panic(err)
 		}
 
-		_, err = addUser(user)
+		_, err = addUser(contact)
 		if err != nil {
 			panic(err)
 		}
@@ -41,12 +41,12 @@ func (h ourHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	users, err := getUsersFromDB()
+	contacts, err := getContactsFromDB()
 	if err != nil {
 		panic(err)
 	}
 
-	json, err := json.Marshal(users)
+	json, err := json.Marshal(contacts)
 	if err != nil {
 		panic(err)
 	}
@@ -56,43 +56,43 @@ func (h ourHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 var db *sql.DB
 
-func addUser(user User) (User, error) {
+func addUser(contact Contact) (Contact, error) {
 	stmt, err := db.Prepare("INSERT INTO contacts SET name=?, email=?,phone=?")
 	if err != nil {
-		return User{}, err
+		return Contact{}, err
 	}
 
-	result, err := stmt.Exec(user.Name, user.Email, user.Phone)
+	result, err := stmt.Exec(contact.Name, contact.Email, contact.Phone)
 	if err != nil {
-		return User{}, err
+		return Contact{}, err
 	}
 
-	user.ID, err = result.LastInsertId()
+	contact.ID, err = result.LastInsertId()
 	if err != nil {
-		return User{}, err
+		return Contact{}, err
 	}
 
-	return user, nil
+	return contact, nil
 }
 
-func getUserById(userID int64) (User, error) {
+func getContactById(contactID int64) (Contact, error) {
 
 	query := "SELECT * FROM contacts WHERE id =?"
 
-	row := db.QueryRow(query, userID)
+	row := db.QueryRow(query, contactID)
 
-	var user User
+	var contact Contact
 
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Phone)
+	err := row.Scan(&contact.ID, &contact.Name, &contact.Email, &contact.Phone)
 	if err != nil {
-		return User{}, err
+		return Contact{}, err
 	}
 
-	return user, nil
+	return contact, nil
 }
 
-func getUsersFromDB() ([]User, error) {
-	var usersFromDB []User
+func getContactsFromDB() ([]Contact, error) {
+	var contactsFromDB []Contact
 
 	rows, err := db.Query("SELECT * FROM contacts")
 	if err != nil {
@@ -100,16 +100,16 @@ func getUsersFromDB() ([]User, error) {
 	}
 
 	for rows.Next() {
-		var user User
-		err = rows.Scan(&user.ID, &user.Name, &user.Email)
+		var contact Contact
+		err = rows.Scan(&contact.ID, &contact.Name, &contact.Email)
 		if err != nil {
 			return nil, err
 		}
 
-		usersFromDB = append(usersFromDB, user)
+		contactsFromDB = append(contactsFromDB, contact)
 	}
 
-	return usersFromDB, nil
+	return contactsFromDB, nil
 }
 
 func main() {
