@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -126,6 +127,53 @@ func httpDeleteContactbyID(ctx *gin.Context) {
 
 	ctx.Status(http.StatusAccepted)
 }
+func updateContact(contact Contact, contactID int64) (Contact, error) {
+	stmt, err := db.Prepare("UPDATE contacts SET name=?, email=?, phone=?, created=? WHERE id=?")
+	if err != nil {
+		return Contact{}, err
+	}
+	defer stmt.Close()
+
+	location, err := time.LoadLocation("Europe/Prague")
+	if err != nil {
+		return Contact{}, err
+	}
+
+	created := time.Now().In(location)
+
+	_, err = stmt.Exec(contact.Name, contact.Email, contact.Phone, created, contactID)
+	if err != nil {
+		return Contact{}, err
+	}
+
+	contact.ID = contactID
+
+	return contact, nil
+}
+
+func httpUpdateContact(ctx *gin.Context) {
+	id := ctx.Param("id")
+	var contact Contact
+	err := ctx.BindJSON(&contact)
+	if err != nil {
+		panic(err)
+	}
+
+	contactID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		ctx.Status(http.StatusBadRequest)
+		return
+	}
+
+	updatedContact, err := updateContact(contact, contactID)
+	if err != nil {
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, updatedContact)
+}
+
 func main() {
 	cfg := mysql.Config{
 		User:      "root",
@@ -155,6 +203,7 @@ func main() {
 	router.GET("/contact/:id", httpFindContactbyID)
 	router.POST("/add", httpAddContact)
 	router.DELETE("/delete/:id", httpDeleteContactbyID)
+	router.PUT("/update/:id", httpUpdateContact)
 	err = router.Run(":7070")
 	if err != nil {
 		panic(err)
