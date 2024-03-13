@@ -2,16 +2,15 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/go-sql-driver/mysql"
 )
-
-type ourHandler struct{}
 
 type Contact struct {
 	ID      int64
@@ -19,45 +18,6 @@ type Contact struct {
 	Email   string
 	Phone   uint64
 	Created time.Time
-}
-
-func (h ourHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	if req.Method == "POST" && req.URL.Path == "/add" {
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			panic(err)
-		}
-
-		var contact Contact
-
-		err = json.Unmarshal(body, &contact)
-		if err != nil {
-			panic(err)
-		}
-
-		_, err = addContact(contact)
-		if err != nil {
-			panic(err)
-		}
-
-		return
-	}
-
-	if req.Method == "GET" && req.URL.Path == "/contacts" {
-		contacts, err := getContactsFromDB()
-		if err != nil {
-			panic(err)
-		}
-
-		jsonContacts, err := json.Marshal(contacts)
-		if err != nil {
-			panic(err)
-		}
-
-		res.Write(jsonContacts)
-		return
-	}
-
 }
 
 var db *sql.DB
@@ -68,7 +28,12 @@ func addContact(contact Contact) (Contact, error) {
 		return Contact{}, err
 	}
 
-	created := time.Now().Format("2006-01-02")
+	location, err := time.LoadLocation("Europe/Prague")
+	if err != nil {
+		panic(err)
+	}
+
+	created := time.Now().In(location)
 
 	result, err := stmt.Exec(contact.Name, contact.Email, contact.Phone, created)
 	if err != nil {
@@ -83,23 +48,6 @@ func addContact(contact Contact) (Contact, error) {
 	return contact, nil
 }
 
-/*
-func getContactById(contactID Contact) (Contact, error) {
-
-		query := "SELECT * FROM contacts WHERE id =?"
-
-		row := db.QueryRow(query, contactID)
-
-		var contact Contact
-
-		err := row.Scan(&contact.ID, &contact.Name, &contact.Email, &contact.Phone)
-		if err != nil {
-			return Contact{}, err
-		}
-
-		return contact, nil
-	}
-*/
 func getContactsFromDB() ([]Contact, error) {
 	var contactsFromDB []Contact
 
@@ -122,7 +70,62 @@ func getContactsFromDB() ([]Contact, error) {
 
 	return contactsFromDB, nil
 }
+func httpAddContact(ctx *gin.Context) {
+	var contact Contact
+	err := ctx.BindJSON(&contact)
+	if err != nil {
+		panic(err)
+	}
+	_, err = addContact(contact)
+	if err != nil {
+		panic(err)
+	}
+	ctx.Status(http.StatusCreated)
 
+}
+func httpGetContacts(ctx *gin.Context) {
+	contacts, err := getContactsFromDB()
+	if err != nil {
+		panic(err)
+	}
+	ctx.JSON(http.StatusOK, contacts)
+}
+func httpFindContactbyID(ctx *gin.Context) {
+	id := ctx.Param("id")
+	fmt.Println(id)
+	ctx.Status(http.StatusOK)
+
+	row := db.QueryRow("SELECT * FROM contacts WHERE id=?", id)
+	if row == nil {
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
+	var contact Contact
+	err := row.Scan(&contact.ID, &contact.Name, &contact.Email, &contact.Phone, &contact.Created)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			ctx.Status(http.StatusNotFound)
+			return
+		}
+		fmt.Println(err)
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
+	ctx.JSON(http.StatusOK, contact)
+}
+
+func httpDeleteContactbyID(ctx *gin.Context) {
+	id := ctx.Param("id")
+	fmt.Println(id)
+	ctx.Status(http.StatusOK)
+	row := db.QueryRow("DELETE  FROM contacts WHERE id=?", id)
+	if row == nil {
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.Status(http.StatusAccepted)
+}
 func main() {
 	cfg := mysql.Config{
 		User:      "root",
@@ -146,7 +149,13 @@ func main() {
 
 	fmt.Println("Connected!")
 
-	err = http.ListenAndServe(":7070", ourHandler{})
+	router := gin.Default()
+
+	router.GET("/contacts", httpGetContacts)
+	router.GET("/contact/:id", httpFindContactbyID)
+	router.POST("/add", httpAddContact)
+	router.DELETE("/delete/:id", httpDeleteContactbyID)
+	err = router.Run(":7070")
 	if err != nil {
 		panic(err)
 	}
