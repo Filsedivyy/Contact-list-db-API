@@ -23,8 +23,8 @@ type Contact struct {
 }
 
 type ContactFragment struct {
-	ID   int64
-	Name string
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 var db *sql.DB
