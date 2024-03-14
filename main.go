@@ -22,6 +22,11 @@ type Contact struct {
 	Created time.Time
 }
 
+type ContactFragment struct {
+	ID   int64
+	Name string
+}
+
 var db *sql.DB
 
 func addContact(contact Contact) (Contact, error) {
@@ -49,6 +54,29 @@ func addContact(contact Contact) (Contact, error) {
 
 	return contact, nil
 }
+func getContactFragmentFromDB() ([]ContactFragment, error) {
+	var contactFragmentFromDB []ContactFragment
+
+	rows, err := db.Query("SELECT id,name FROM contacts")
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var contact ContactFragment
+		err = rows.Scan(&contact.ID, &contact.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		contactFragmentFromDB = append(contactFragmentFromDB, contact)
+	}
+
+	return contactFragmentFromDB, nil
+
+}
 
 func getContactsFromDB() ([]Contact, error) {
 	var contactsFromDB []Contact
@@ -71,6 +99,7 @@ func getContactsFromDB() ([]Contact, error) {
 	}
 
 	return contactsFromDB, nil
+
 }
 func httpAddContact(ctx *gin.Context) {
 	var contact Contact
@@ -87,6 +116,13 @@ func httpAddContact(ctx *gin.Context) {
 }
 func httpGetContacts(ctx *gin.Context) {
 	contacts, err := getContactsFromDB()
+	if err != nil {
+		panic(err)
+	}
+	ctx.JSON(http.StatusOK, contacts)
+}
+func httpGetContactsFragment(ctx *gin.Context) {
+	contacts, err := getContactFragmentFromDB()
 	if err != nil {
 		panic(err)
 	}
@@ -207,6 +243,7 @@ func main() {
 	}))
 	router.GET("/contacts", httpGetContacts)
 	router.GET("/contact/:id", httpFindContactbyID)
+	router.GET("/contact/id/name", httpGetContactsFragment)
 	router.POST("/add", httpAddContact)
 	router.DELETE("/delete/:id", httpDeleteContactbyID)
 	router.PUT("/update/:id", httpUpdateContact)
