@@ -1,6 +1,5 @@
 package main
 
-
 import (
 	"database/sql"
 	"errors"
@@ -9,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
 	"github.com/go-sql-driver/mysql"
@@ -200,6 +200,11 @@ func main() {
 
 	router := gin.Default()
 
+	router.Use(cors.New(cors.Config{
+		AllowAllOrigins: true,
+		AllowMethods:    []string{"GET", "POST"},
+		AllowHeaders:    []string{"Content-Type"},
+	}))
 	router.GET("/contacts", httpGetContacts)
 	router.GET("/contact/:id", httpFindContactbyID)
 	router.POST("/add", httpAddContact)
