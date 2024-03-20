@@ -15,11 +15,11 @@ import (
 )
 
 type Contact struct {
-	ID      int64
-	Name    string
-	Email   string
-	Phone   uint64
-	Created time.Time
+	ID      int64     `json:"id"`
+	Name    string    `json:"name"`
+	Email   string    `json:"email"`
+	Phone   uint64    `json:"phone"`
+	Created time.Time `json:"created"`
 }
 
 type ContactFragment struct {
@@ -79,7 +79,7 @@ func getContactFragmentFromDB() ([]ContactFragment, error) {
 }
 
 func getContactsFromDB() ([]Contact, error) {
-	var contactsFromDB []Contact
+	contactsFromDB := []Contact{}
 
 	rows, err := db.Query("SELECT * FROM contacts")
 	if err != nil {
@@ -238,7 +238,7 @@ func main() {
 
 	router.Use(cors.New(cors.Config{
 		AllowAllOrigins: true,
-		AllowMethods:    []string{"GET", "POST"},
+		AllowMethods:    []string{"GET", "POST", "DELETE", "PUT"},
 		AllowHeaders:    []string{"Content-Type"},
 	}))
 	router.GET("/contacts", httpGetContacts)
