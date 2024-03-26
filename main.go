@@ -14,8 +14,12 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
-type ContactID struct {
-	ID int64 `json:id`
+type Contactinfo struct {
+	ID      int64     `json:"id"`
+	Name    string    `json:"name"`
+	Email   string    `json:"email"`
+	Phone   uint64    `json:"phone"`
+	Created time.Time `json:"created"`
 }
 type Contact struct {
 	ID      int64     `json:"id"`
@@ -81,30 +85,6 @@ func getContactFragmentFromDB() ([]ContactFragment, error) {
 
 }
 
-func getIDsFromDB() ([]ContactID, error) {
-	contactsFromDB := []ContactID{}
-
-	rows, err := db.Query("SELECT id FROM contacts")
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var contact ContactID
-		err = rows.Scan(&contact.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		contactsFromDB = append(contactsFromDB, contact)
-	}
-
-	return contactsFromDB, nil
-
-}
-
 func getContactsFromDB() ([]Contact, error) {
 	contactsFromDB := []Contact{}
 
@@ -141,13 +121,6 @@ func httpAddContact(ctx *gin.Context) {
 	ctx.Status(http.StatusCreated)
 
 }
-func httpGetIDs(ctx *gin.Context) {
-	contacts, err := getIDsFromDB()
-	if err != nil {
-		panic(err)
-	}
-	ctx.JSON(http.StatusOK, contacts)
-}
 
 func httpGetContacts(ctx *gin.Context) {
 	contacts, err := getContactsFromDB()
@@ -173,7 +146,7 @@ func httpFindContactbyID(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 		return
 	}
-	var contact Contact
+	var contact Contactinfo
 	err := row.Scan(&contact.ID, &contact.Name, &contact.Email, &contact.Phone, &contact.Created)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -277,7 +250,7 @@ func main() {
 		AllowHeaders:    []string{"Content-Type"},
 	}))
 	router.GET("/contacts", httpGetContacts)
-	router.GET("/id", httpGetIDs)
+
 	router.GET("/contact/:id", httpFindContactbyID)
 	router.GET("/contact/id/name", httpGetContactsFragment)
 	router.POST("/add", httpAddContact)
